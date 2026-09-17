@@ -14,28 +14,54 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         return JSONResponse(
             status_code=exc.status_code,
-            content={"error": {"message": exc.detail, "status_code": exc.status_code}},
+            content={
+                "error": {
+                    "message": str(exc.detail),
+                    "status_code": exc.status_code,
+                }
+            },
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ):
+        safe_errors = []
+
+        for error in exc.errors():
+            safe_error = dict(error)
+
+            if "ctx" in safe_error:
+                safe_error["ctx"] = {
+                    key: str(value)
+                    for key, value in safe_error["ctx"].items()
+                }
+
+            safe_errors.append(safe_error)
+
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "error": {
                     "message": "Validation failed.",
                     "status_code": 422,
-                    "fields": exc.errors(),
+                    "fields": safe_errors,
                 }
             },
         )
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
-        # Never return the raw exception to the client. Log it server-side
-        # with a correlation ID the client can quote when reporting a bug.
         error_id = str(uuid.uuid4())
-        logger.exception("Unhandled exception [error_id=%s] on %s %s", error_id, request.method, request.url.path)
+
+        logger.exception(
+            "Unhandled exception [error_id=%s] on %s %s",
+            error_id,
+            request.method,
+            request.url.path,
+        )
+
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
