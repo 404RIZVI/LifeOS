@@ -32,4 +32,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # In production, run behind a reverse proxy (nginx/Caddy) terminating TLS.
 # --workers should scale with CPU cores; 4 is a reasonable default for a
 # small instance and should be tuned per deployment.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["sh", "/app/start.sh"]
